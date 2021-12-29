@@ -1,0 +1,5 @@
+intelino-trainlib>=1.0.0
+pvrhino>=2.0.2
+oauth2client>=4.1.3
+google_api_python_client>=2.33.0
+-e .
