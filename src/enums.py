@@ -1,4 +1,4 @@
-from enum import IntEnum, IntFlag
+from enum import IntEnum
 
 
 class Command(IntEnum):
@@ -16,7 +16,31 @@ class Command(IntEnum):
     KEEP_LEFT = 11
     KEEP_RIGHT = 12
     KEEP_STRAIGHT = 13
+    SNAPS_IGNORE = 14
+    SNAPS_FOLLOW = 15
+    NEXT_SNAP_FOLLOW = 16
+    NEXT_SNAP_IGNORE = 17
     EXIT = 100
 
     def __str__(self):
         return "{0}".format(self.name)
+
+
+class Speed(IntEnum):
+    ZERO = 0
+    ONE = 15
+    TWO = 30
+    THREE = 45
+    FOUR = 60
+    FIVE = 75
+    MAX = FIVE
+    MIN = ONE
+
+    def __str__(self):
+        return "{0}".format(self.name)
+
+    def __init__(self):
+        self.max = Speed.MAX
+        self.min = Speed.MIN
+
+

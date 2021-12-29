@@ -1,15 +1,15 @@
 from threading import Thread
-from abstract_driver import AbstractDriver
+from drivable import Drivable
 from enums import Command
 
 
 class Controller(Thread):
-    def __init__(self, driver: AbstractDriver = None):
+    def __init__(self, driver: Drivable = None):
         self._stopit: bool = False
-        self.driver: AbstractDriver = driver
+        self.driver: Drivable = driver
         Thread.__init__(self)
 
-    def set_train_driver(self, driver: AbstractDriver):
+    def set_train_driver(self, driver: Drivable):
         self.driver = driver
 
     def stop(self):
