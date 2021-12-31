@@ -1,3 +1,5 @@
+import time
+from threading import Thread
 from typing import Union
 
 from intelino.trainlib_async.enums import SteeringDecision
@@ -12,16 +14,19 @@ from intelino.trainlib.messages import (
     TrainMsgEventMovementDirectionChanged,
     TrainMsgEventSplitDecision
 )
-from controlller import Controller
-from drivable import Drivable
-from enums import Command
+from reporter import Reporter, ConsoleReporter
+from enums import Command, SpeedFine
 
 
-class TrainDriver(Drivable):
+class TrainDriver:
     """The train driving class that has state and high level methods"""
-    def __init__(self):
+
+    def __init__(self, reporter: Reporter = ConsoleReporter()):
+        self._driver_thread: Thread = None
+        self._driving: bool = None
         self.train: Train = None
-        self._controllers: list(Controller) = list()
+        self._reporters: list(Reporter) = list()
+        self._reporters.append(reporter)
 
         # Below is the state of the train
         self._snap_following: bool = False
@@ -30,48 +35,66 @@ class TrainDriver(Drivable):
         self._direction: MovementDirection = MovementDirection.FORWARD
 
         # For overriding
-        #self._next_snap_following_: bool
-        #self._next_snap_following_count: int
+        # self._next_snap_following_: bool
+        # self._next_snap_following_count: int
         self._next_steering: SteeringDecision = None
         self._next_steering_count: int = 0
 
-    def add_controller(self, controller: Controller):
-        controller.set_train_driver(self)
-        self._controllers.append(controller)
+    def connect(self, callback):
+        if self._driver_thread is not None:
+            if self._driver_thread.is_alive():
+                raise Exception("The driver is already driving")
+            else:
+                del self._driver_thread
 
-    def drive(self):
-        with TrainScanner() as self.train:
+        self._driver_thread = Thread(target=self._do_drive, args=(callback,))
+        self._driver_thread.start()
 
-            for c in self._controllers:
-                c.start()
+    def disconnect(self):
+        self._driving = False
 
-            # Now just wait for them to terminate
-            for c in self._controllers:
-                c.join()
+    def is_driving(self) -> bool:
+        return self._driving
 
-            self.cleanup()
+    def log(self, msg):
+        for r in self._reporters:
+            r.log(msg)
 
-    def init_train_behaviour(self):
+    def logn(self, msg):
+        for r in self._reporters:
+            r.logn(msg)
+
+    def add_reporter(self, reporter: Reporter):
+        self._reporters.append(reporter)
+
+    def _do_drive(self, callback):
+        try:
+            with TrainScanner() as self.train:
+                callback(True, self.train.name)
+                self._init_train()
+                self._driving = True
+                while self._driving:
+                    time.sleep(0.01)
+                self._driving = False
+                self._cleanup_train()
+        except Exception as error:
+            callback(False, str(error))
+
+    def _init_train(self):
         self.train.stop_driving()
         self.train.set_snap_command_execution(self._snap_following)
         self.train.add_split_decision_listener(self.split_decision_callback)
 
-    def cleanup(self):
+    def _cleanup_train(self):
+        self.train.stop_driving()
         self.train.set_snap_command_execution(True)
         self.train.remove_split_decision_listener(self.split_decision_callback)
-        for c in self._controllers:
-            t = Controller()
-
-    def quit(self):
-        # Stop all controllers
-        # Disconnect and clean up
-        print("Quiting. Waiting for controllers to stop")
-        for c in self._controllers:
-            c.stop()
 
     def execute(self, command: Command, arg: Union[int, str] = None):
-        if command == Command.EXIT:
-            self.quit()
+        if command == Command.CONNECT:
+            self.connect()
+        elif command == Command.DISCONNECT:
+            self.disconnect()
         elif command == Command.START:
             self.start()
         elif command == Command.STOP:
@@ -92,37 +115,48 @@ class TrainDriver(Drivable):
             self.next_steering(SteeringDecision.STRAIGHT)
         elif command == Command.SNAPS_IGNORE:
             self.next_steering(SteeringDecision.STRAIGHT)
+        elif command == Command.SPEED_FAST:
+            self.set_speed_level(SpeedLevel.LEVEL3)
+        elif command == Command.SPEED_MEDIUM:
+            self.set_speed_level(SpeedLevel.LEVEL2)
+        elif command == Command.SPEED_SLOW:
+            self.set_speed_level(SpeedLevel.LEVEL1)
 
     def start(self):
-        print("Starting")
+        self.logn("Starting")
         self._speed_level = SpeedLevel.LEVEL2
         self.train.drive_at_speed_level(self._speed_level, self._direction, True)
 
     def stop(self):
-        print("Stopping")
+        self.log("Stopping")
         self._speed_level = SpeedLevel.STOP
         self.train.drive_at_speed_level(self._speed_level, self._direction, True)
 
     def set_state_steering(self, steering: SteeringDecision):
-        print(f"Set base steering {steering.name}")
+        self.log(f"Set base steering {steering.name}")
         self._steering = steering
         self.train.set_next_split_steering_decision(self._steering)
 
     def set_snap_following(self, follow: bool):
-        print(f"Setting snap following to {bool}")
+        self.log(f"Setting snap following to {follow}")
         self._snap_following = follow
         self.train.set_snap_command_execution(follow)
 
     def next_steering(self, steering: SteeringDecision, count: int = 1):
         if count is None:
             count = 1
-        print(f"Next steering: {steering.name}, count: {count}")
+        self.log(f"Next steering: {steering.name}, count: {count}")
         self._next_steering_count = count - 1
         self._next_steering = steering
         self.train.set_next_split_steering_decision(steering)
 
-    def set_speed(self, speed_level: SpeedLevel):
-        self.train.drive_at_speed()
+    def set_speed_level(self, speed_level: SpeedLevel):
+        self.log(f"Setting speed to {speed_level.name}")
+        self.train.drive_at_speed_level(speed_level, self._driving, True)
+
+    def set_speed_fine(self, speed_fine: SpeedFine):
+        self.log(f"Setting speed to {speed_fine.name}")
+        self.train.drive_at_speed(speed_fine, self._direction, True)
 
     def split_decision_callback(self, train: Train, msg: TrainMsgEventSplitDecision):
         if self._next_steering_count > 0:
@@ -130,12 +164,12 @@ class TrainDriver(Drivable):
             self._next_steering_count -= 1
         else:
             steering = self._steering
-        print("Split decision callback.")
-        print("  Last            : ", msg.decision.name)
-        print("  Train's next    : ", self.train.next_split_decision.name)
-        print("  Driver's default: ", self._steering)
-        print("  Actual          : ", steering)
-        print("  Is overridden   : ", self._next_steering_count > 0)
+        self.log("Split decision callback.")
+        self.log(f"  Last            : {msg.decision.name}")
+        self.log(f"  Train's next    : {self.train.next_split_decision.name}")
+        self.log(f"  Driver's default: {self._steering.name}")
+        self.log(f"  Actual          : {steering.name}")
+        self.log(f"  Is overridden   : {self._next_steering_count > 0}")
         if self._next_steering_count > 0:
-            print("  Overrides left  : ", self._next_steering_count)
+            self.log(f"  Overrides left  : {self._next_steering_count}")
         self.train.set_next_split_steering_decision(steering)

@@ -8,8 +8,8 @@ class Command(IntEnum):
     NEXT_RIGHT = 3
     NEXT_STRAIGHT = 4
     SPEED_SLOW = 5
-    SPEED_FAST = 6
-    SPEED_FASTER = 7
+    SPEED_MEDIUM = 6
+    SPEED_FAST = 7
     FORWARD = 8
     BACKWARD = 9
     REVERSE = 10
@@ -20,13 +20,16 @@ class Command(IntEnum):
     SNAPS_FOLLOW = 15
     NEXT_SNAP_FOLLOW = 16
     NEXT_SNAP_IGNORE = 17
+    SPEED_FINE = 18
+    DISCONNECT = 98
+    CONNECT = 99
     EXIT = 100
 
     def __str__(self):
         return "{0}".format(self.name)
 
 
-class Speed(IntEnum):
+class SpeedFine(IntEnum):
     ZERO = 0
     ONE = 15
     TWO = 30
@@ -39,8 +42,8 @@ class Speed(IntEnum):
     def __str__(self):
         return "{0}".format(self.name)
 
-    def __init__(self):
-        self.max = Speed.MAX
-        self.min = Speed.MIN
+    # def __init__(self):
+    #     self.max = Speed.MAX
+    #     self.min = Speed.MIN
 
 

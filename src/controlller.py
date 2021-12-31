@@ -1,25 +1,19 @@
-from threading import Thread
-from drivable import Drivable
-from enums import Command
+from train_driver import TrainDriver
+from abc import ABC, abstractmethod
 
 
-class Controller(Thread):
-    def __init__(self, driver: Drivable = None):
-        self._stopit: bool = False
-        self.driver: Drivable = driver
-        Thread.__init__(self)
+class Controller(ABC):
+    def __init__(self, driver: TrainDriver = None):
+        self.driver: TrainDriver = driver
+        self._connected: bool = False
 
-    def set_train_driver(self, driver: Drivable):
+    def set_train_driver(self, driver: TrainDriver):
         self.driver = driver
 
-    def stop(self):
-        self._stopit = True
+    @abstractmethod
+    def control(self):
+        pass
 
-    def is_stopped(self) -> bool:
-        return self._stopit
-
-    def run(self):
-        """main loop goes here.
-        When the loop interprets an intent/command it calls the drivers execute method
-        """
+    @abstractmethod
+    def stop_control(self):
         pass
