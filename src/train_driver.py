@@ -7,7 +7,8 @@ from intelino.trainlib import TrainScanner, Train
 from intelino.trainlib.enums import (
     MovementDirection,
     SnapColorValue as C,
-    SpeedLevel
+    SpeedLevel,
+    ColorSensor
 )
 from intelino.trainlib.messages import (
     TrainMsgEventSensorColorChanged,
@@ -33,6 +34,8 @@ class TrainDriver:
         self._speed_level: Speed = Speed.ZERO
         self._steering: SteeringDecision = SteeringDecision.STRAIGHT
         self._direction: MovementDirection = MovementDirection.FORWARD
+        self._color_sequence: list(C) = list()
+        self._ignore_default_junction_seq: bool = True
 
         # For overriding
         # self._next_snap_following_: bool
@@ -84,11 +87,15 @@ class TrainDriver:
         self.train.stop_driving()
         self.train.set_snap_command_execution(self._snap_following)
         self.train.add_split_decision_listener(self.split_decision_callback)
+        self.train.add_front_color_change_listener(self.handle_color_change)
+        self.train.add_back_color_change_listener(self.handle_color_change)
 
     def _cleanup_train(self):
         self.train.stop_driving()
         self.train.set_snap_command_execution(True)
         self.train.remove_split_decision_listener(self.split_decision_callback)
+        self.train.remove_front_color_change_listener(self.handle_color_change)
+        self.train.remove_back_color_change_listener(self.handle_color_change)
 
     def execute(self, command: Command, arg: Union[int, str] = None):
         if command == Command.CONNECT:
@@ -192,12 +199,25 @@ class TrainDriver:
             self._next_steering_count -= 1
         else:
             steering = self._steering
-        self.log("Split decision callback.")
-        self.log(f"  Last            : {msg.decision.name}")
-        self.log(f"  Train's next    : {self.train.next_split_decision.name}")
-        self.log(f"  Driver's default: {self._steering.name}")
-        self.log(f"  Actual          : {steering.name}")
-        self.log(f"  Is overridden   : {self._next_steering_count > 0}")
-        if self._next_steering_count > 0:
-            self.log(f"  Overrides left  : {self._next_steering_count}")
+        self.log(f"Split. Last: {msg.decision.name}, Next: {msg.decision.name}, Next: {steering.name} ({self._next_steering_count > 0}), Default: {self.train.next_split_decision.name}")
         self.train.set_next_split_steering_decision(steering)
+
+    def handle_color_change(self, train: Train, msg: TrainMsgEventSensorColorChanged):
+        if msg.sensor == ColorSensor.FRONT:
+            # self.log(f"Sensor color change {train.distance_cm} -> {msg.sensor.name}: {msg.color}")
+            # Sequence detection:
+            if msg.color == C.BLACK:
+                col_seq = list(self._color_sequence)
+                self._color_sequence.clear()
+                self.handle_color_command(col_seq, train.distance_cm)
+            else:
+                self._color_sequence.append(msg.color)
+
+    def handle_color_command(self, seq: list(C), distance: int):
+        builtin = False
+        if self._ignore_default_junction_seq and len(seq) == 2:
+            builtin = builtin or (seq[0] == C.CYAN and (seq[1] == C.RED or seq[1] == C.BLUE))
+            builtin = builtin or (seq[1] == C.CYAN and (seq[0] == C.RED or seq[0] == C.BLUE))
+
+        if not builtin:
+            self.log(f"Color command at {distance}: {seq}")
