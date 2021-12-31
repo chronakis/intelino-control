@@ -52,7 +52,7 @@ class GuiKeyController(Controller, Reporter):
         source.delete(0, tk.END)
         self.log(f"*** Command: {text}")
 
-        str_cmd = text.lower()
+        str_cmd: str = text.lower()
         if str_cmd == "quit":
             self._disconnect()
             self._quit()
@@ -82,6 +82,19 @@ class GuiKeyController(Controller, Reporter):
             self.driver.execute(Command.SPEED_MEDIUM)
         elif str_cmd == "speed_fast":
             self.driver.execute(Command.SPEED_FAST)
+        elif str_cmd.startswith("speed "):
+            val_str = str_cmd.removeprefix("speed ")
+            if val_str.isnumeric():
+                val = int(val_str)
+                self.driver.execute(Command.SPEED_FINE, val)
+            else:
+                self.log("   -> malformed command. Usage: speed 1|2|3|4|5")
+        elif str_cmd == "reverse":
+            self.driver.execute(Command.REVERSE)
+        elif str_cmd == "forward":
+            self.driver.execute(Command.FORWARD)
+        elif str_cmd == "backwards":
+            self.driver.execute(Command.BACKWARD)
         else:
             self.log("    -> Not recognised")
 

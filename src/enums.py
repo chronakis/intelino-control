@@ -1,4 +1,4 @@
-from enum import IntEnum
+from enum import IntEnum, Enum
 
 
 class Command(IntEnum):
@@ -29,21 +29,26 @@ class Command(IntEnum):
         return "{0}".format(self.name)
 
 
-class SpeedFine(IntEnum):
-    ZERO = 0
-    ONE = 15
-    TWO = 30
-    THREE = 45
-    FOUR = 60
-    FIVE = 75
+class Speed(Enum):
+    def __new__(cls, value, speed):
+        obj = object.__new__(cls)
+        obj._value_ = value
+        return obj
+
+    def __init__(self, value, speed):
+        self.speed = speed
+
+    ZERO = 0, 0
+    ONE = 1, 15
+    TWO = 2, 30
+    THREE = 3, 45
+    FOUR = 4, 60
+    FIVE = 5, 75
     MAX = FIVE
     MIN = ONE
 
-    def __str__(self):
-        return "{0}".format(self.name)
-
-    # def __init__(self):
-    #     self.max = Speed.MAX
-    #     self.min = Speed.MIN
-
-
+# s = SpeedFine.ONE
+# print(s, s.value, s.name, s.speed)
+#
+# s = SpeedFine(2)
+# print(s, s.value, s.name, s.speed)

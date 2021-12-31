@@ -7,7 +7,7 @@ from intelino.trainlib import TrainScanner, Train
 from intelino.trainlib.enums import (
     MovementDirection,
     SnapColorValue as C,
-    SpeedLevel,
+    SpeedLevel
 )
 from intelino.trainlib.messages import (
     TrainMsgEventSensorColorChanged,
@@ -15,7 +15,7 @@ from intelino.trainlib.messages import (
     TrainMsgEventSplitDecision
 )
 from reporter import Reporter, ConsoleReporter
-from enums import Command, SpeedFine
+from enums import Command, Speed
 
 
 class TrainDriver:
@@ -30,7 +30,7 @@ class TrainDriver:
 
         # Below is the state of the train
         self._snap_following: bool = False
-        self._speed_level: SpeedLevel = SpeedLevel.STOP
+        self._speed_level: Speed = Speed.ZERO
         self._steering: SteeringDecision = SteeringDecision.STRAIGHT
         self._direction: MovementDirection = MovementDirection.FORWARD
 
@@ -116,21 +116,52 @@ class TrainDriver:
         elif command == Command.SNAPS_IGNORE:
             self.next_steering(SteeringDecision.STRAIGHT)
         elif command == Command.SPEED_FAST:
-            self.set_speed_level(SpeedLevel.LEVEL3)
+            self.set_speed(Speed.FOUR)
         elif command == Command.SPEED_MEDIUM:
-            self.set_speed_level(SpeedLevel.LEVEL2)
+            self.set_speed(Speed.THREE)
         elif command == Command.SPEED_SLOW:
-            self.set_speed_level(SpeedLevel.LEVEL1)
+            self.set_speed(Speed.TWO)
+        elif command == Command.SPEED_FINE:
+            if Speed.MIN.value <= arg <= Speed.MAX.value:
+                self.set_speed(Speed(arg))
+            else:
+                self.log(f"Invalid speed file value {arg}. Must be between {Speed.MIN} and {Speed.MAX}")
+        elif command == Command.REVERSE:
+            self.reverse()
+        elif command == Command.FORWARD:
+            self.forward()
+        elif command == Command.BACKWARD:
+            self.backward()
 
     def start(self):
         self.logn("Starting")
-        self._speed_level = SpeedLevel.LEVEL2
-        self.train.drive_at_speed_level(self._speed_level, self._direction, True)
+        self._speed_level = Speed.TWO
+        self.train.drive_at_speed(self._speed_level.speed, self._direction, True)
 
     def stop(self):
         self.log("Stopping")
-        self._speed_level = SpeedLevel.STOP
-        self.train.drive_at_speed_level(self._speed_level, self._direction, True)
+        self._speed_level = Speed.ZERO
+        self.train.drive_at_speed(self._speed_level.speed, self._direction, True)
+
+    def reverse(self):
+        self.log("Reversing")
+        if self.train.direction == MovementDirection.FORWARD:
+            self._direction = MovementDirection.BACKWARD
+        else:
+            self._direction = MovementDirection.FORWARD
+        self.train.drive_at_speed(self._speed_level.speed, self._direction, True)
+
+    def forward(self):
+        self.log("Forward")
+        self._direction = MovementDirection.FORWARD
+        self._speed_level = Speed.TWO
+        self.train.drive_at_speed(self._speed_level.speed, self._direction, True)
+
+    def backward(self):
+        self.log("Backwards")
+        self._direction = MovementDirection.BACKWARD
+        self._speed_level = Speed.TWO
+        self.train.drive_at_speed(self._speed_level.speed, self._direction, True)
 
     def set_state_steering(self, steering: SteeringDecision):
         self.log(f"Set base steering {steering.name}")
@@ -150,13 +181,10 @@ class TrainDriver:
         self._next_steering = steering
         self.train.set_next_split_steering_decision(steering)
 
-    def set_speed_level(self, speed_level: SpeedLevel):
+    def set_speed(self, speed_level: Speed):
         self.log(f"Setting speed to {speed_level.name}")
-        self.train.drive_at_speed_level(speed_level, self._driving, True)
-
-    def set_speed_fine(self, speed_fine: SpeedFine):
-        self.log(f"Setting speed to {speed_fine.name}")
-        self.train.drive_at_speed(speed_fine, self._direction, True)
+        self._speed_level = speed_level
+        self.train.drive_at_speed(self._speed_level.speed, self._direction, True)
 
     def split_decision_callback(self, train: Train, msg: TrainMsgEventSplitDecision):
         if self._next_steering_count > 0:
