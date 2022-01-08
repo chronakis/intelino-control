@@ -1,5 +1,6 @@
 from controlller import Controller
-from enums import Command
+from enums import CommandId
+from src.util import Command
 
 
 class KeyController(Controller):
@@ -22,27 +23,27 @@ class KeyController(Controller):
                 elif str_cmd == "disconnect":
                     self.driver.disconnect()
                 elif str_cmd == "start":
-                    self.driver.execute(Command.START)
+                    self.driver.execute(Command(CommandId.START))
                 elif str_cmd == "stop":
-                    self.driver.execute(Command.STOP)
+                    self.driver.execute(Command(CommandId.STOP))
                 elif str_cmd == "keep_straight":
-                    self.driver.execute(Command.KEEP_STRAIGHT)
+                    self.driver.execute(Command(CommandId.KEEP_STRAIGHT))
                 elif str_cmd == "keep_left":
-                    self.driver.execute(Command.KEEP_LEFT)
+                    self.driver.execute(Command(CommandId.KEEP_LEFT))
                 elif str_cmd == "keep_right":
-                    self.driver.execute(Command.KEEP_RIGHT)
+                    self.driver.execute(Command(CommandId.KEEP_RIGHT))
                 elif str_cmd == "next_straight":
-                    self.driver.execute(Command.NEXT_STRAIGHT)
+                    self.driver.execute(Command(CommandId.NEXT_STRAIGHT))
                 elif str_cmd == "next_left":
-                    self.driver.execute(Command.NEXT_LEFT)
+                    self.driver.execute(Command(CommandId.NEXT_LEFT))
                 elif str_cmd == "next_right":
-                    self.driver.execute(Command.NEXT_RIGHT)
+                    self.driver.execute(Command(CommandId.NEXT_RIGHT))
                 elif str_cmd == "speed_slow":
-                    self.driver.execute(Command.SPEED_SLOW)
+                    self.driver.execute(Command(CommandId.SPEED_SLOW))
                 elif str_cmd == "speed_medium":
-                    self.driver.execute(Command.SPEED_MEDIUM)
+                    self.driver.execute(Command(CommandId.SPEED_MEDIUM))
                 elif str_cmd == "speed_fast":
-                    self.driver.execute(Command.SPEED_FAST)
+                    self.driver.execute(Command(CommandId.SPEED_FAST))
             except EOFError:
                 print("Quiting key controller")
                 self._running = False

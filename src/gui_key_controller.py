@@ -1,9 +1,11 @@
 from controlller import Controller
 from reporter import Reporter
-from enums import Command
+from enums import CommandId
 import tkinter as tk
 import queue as q
 from queue import Queue
+
+from src.util import Command, CommandFormatException, Program, ColorSequence
 
 
 class GuiKeyController(Controller, Reporter):
@@ -41,7 +43,7 @@ class GuiKeyController(Controller, Reporter):
         self._log_queue.put(message)
 
     def control(self):
-        self._connect()
+        self.driver.execute(Command(CommandId.CONNECT, self.connect_callback, self.disconnect_callback))
         self.root.mainloop()
 
     def stop_control(self):
@@ -52,51 +54,82 @@ class GuiKeyController(Controller, Reporter):
         source.delete(0, tk.END)
         self.log(f"*** Command: {text}")
 
+        cmd: Command = None
         str_cmd: str = text.lower()
-        if str_cmd == "quit":
-            self._disconnect()
-            self._quit()
-        elif str_cmd == "connect":
-            self._connect()
+        try:
+            if str_cmd == "quit":
+                self.driver.execute(Command(CommandId.DISCONNECT))
+                self._quit()
+            elif str_cmd.startswith("program "):
+                prog_text = str_cmd.removeprefix("program ")
+                parts = prog_text.split(" when ")
+                cmd_text = parts[0]
+                seq_text = parts[1]
+                cmd = self._text_to_command(cmd_text, self)
+                seq = ColorSequence().from_string_csv(seq_text)
+                prog = Program(seq, cmd)
+                self.driver.program_command(prog)
+            else:
+                cmd = self._text_to_command(str_cmd, self)
+                self.driver.execute(cmd)
+        except CommandFormatException as e:
+            self.log(e)
+
+    @staticmethod
+    def _text_to_command(text, callback_target) -> Command:
+        """
+        Converts a text to a command. It does not work with "program"
+        Args:
+            text: The text
+
+        Returns: A command including the arguments
+        """
+        str_cmd = text.lower()
+        cmd = None
+
+        if str_cmd == "connect":
+            cmd = Command(CommandId.CONNECT, callback_target.connect_callback, callback_target.disconnect_callback)
         elif str_cmd == "disconnect":
-            self.driver.disconnect()
+            cmd = Command(CommandId.DISCONNECT)
         elif str_cmd == "start":
-            self.driver.execute(Command.START)
+            cmd = Command(CommandId.START)
         elif str_cmd == "stop":
-            self.driver.execute(Command.STOP)
+            cmd = Command(CommandId.STOP)
         elif str_cmd == "keep_straight":
-            self.driver.execute(Command.KEEP_STRAIGHT)
+            cmd = Command(CommandId.KEEP_STRAIGHT)
         elif str_cmd == "keep_left":
-            self.driver.execute(Command.KEEP_LEFT)
+            cmd = Command(CommandId.KEEP_LEFT)
         elif str_cmd == "keep_right":
-            self.driver.execute(Command.KEEP_RIGHT)
+            cmd = Command(CommandId.KEEP_RIGHT)
         elif str_cmd == "next_straight":
-            self.driver.execute(Command.NEXT_STRAIGHT)
+            cmd = Command(CommandId.NEXT_STRAIGHT)
         elif str_cmd == "next_left":
-            self.driver.execute(Command.NEXT_LEFT)
+            cmd = Command(CommandId.NEXT_LEFT)
         elif str_cmd == "next_right":
-            self.driver.execute(Command.NEXT_RIGHT)
+            cmd = Command(CommandId.NEXT_RIGHT)
         elif str_cmd == "speed_slow":
-            self.driver.execute(Command.SPEED_SLOW)
+            cmd = Command(CommandId.SPEED_SLOW)
         elif str_cmd == "speed_medium":
-            self.driver.execute(Command.SPEED_MEDIUM)
+            cmd = Command(CommandId.SPEED_MEDIUM)
         elif str_cmd == "speed_fast":
-            self.driver.execute(Command.SPEED_FAST)
+            cmd = Command(CommandId.SPEED_FAST)
         elif str_cmd.startswith("speed "):
             val_str = str_cmd.removeprefix("speed ")
             if val_str.isnumeric():
                 val = int(val_str)
-                self.driver.execute(Command.SPEED_FINE, val)
+                cmd = Command(CommandId.SPEED_FINE, val)
             else:
-                self.log("   -> malformed command. Usage: speed 1|2|3|4|5")
+                raise CommandFormatException("Malformed command. Usage: speed 1|2|3|4|5")
         elif str_cmd == "reverse":
-            self.driver.execute(Command.REVERSE)
+            cmd = Command(CommandId.REVERSE)
         elif str_cmd == "forward":
-            self.driver.execute(Command.FORWARD)
+            cmd = Command(CommandId.FORWARD)
         elif str_cmd == "backwards":
-            self.driver.execute(Command.BACKWARD)
+            cmd = Command(CommandId.BACKWARD)
         else:
-            self.log("    -> Not recognised")
+            raise CommandFormatException(f"Command not recognised: {str_cmd}")
+
+        return cmd
 
     def _write_to_output(self, text: str):
         self.text_output.insert(tk.END, f"{text}\n")
@@ -121,18 +154,18 @@ class GuiKeyController(Controller, Reporter):
         except q.Empty:
             self.root.after(10, self._process_log_queue)
 
-    def _connect(self):
-        self.driver.connect(self._connect_callback)
+    def connect_callback(self, connected: bool, train_id_or_msg: str = "", train_name: str = None):
+        if connected:
+            self.log(f"Connected: {connected}. Train id: {train_id_or_msg}, name: {train_name}")
+            self._connected = connected
+        else:
+            self.log(f"Failed to connect. Message: {train_id_or_msg}")
 
-    def _connect_callback(self, connected: bool, message: str = ""):
-        self.log(f"Connected: {connected}, Message: {message}")
-        self._connected = connected
-
-    def _disconnect(self):
+    def disconnect_callback(self, connected: bool, train_id_or_msg: str = "", train_name: str = None):
         self._connected = False
-        self.driver.disconnect()
+        self.log(f"Disconnected: {connected}. Train id: {train_id_or_msg}, name: {train_name}")
 
     def _quit(self):
         if self._connected:
-            self._disconnect()
+            self.driver.execute(Command(CommandId.DISCONNECT))
         self.root.quit()

@@ -6,6 +6,11 @@ from reporter import Reporter, ConsoleReporter
 
 def main():
     driver = TrainDriver()
+
+    # driver.connect(lambda s, i, n: print(f"connected = {s}, msg/id: {i}, name: {n}"), lambda s, i, n: print(f"disconnected = {s}, msg/id: {i}, name: {n}"))
+    # input("Press any key")
+    # driver.disconnect()
+
     # key_controller = KeyController()
     # key_controller.set_train_driver(driver)
     # key_controller.control()

@@ -1,7 +1,7 @@
 from enum import IntEnum, Enum
 
 
-class Command(IntEnum):
+class CommandId(IntEnum):
     START = 0
     STOP = 1
     NEXT_LEFT = 2
@@ -52,3 +52,11 @@ class Speed(Enum):
 #
 # s = SpeedFine(2)
 # print(s, s.value, s.name, s.speed)
+
+
+class JunctionMark(Enum):
+    LEFT = 0
+    RIGHT = 1
+
+    def __str__(self):
+        return self.name

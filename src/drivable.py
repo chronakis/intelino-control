@@ -1,6 +1,6 @@
 from typing import Union
 from abc import ABC, abstractmethod
-from enums import Command
+from enums import CommandId
 
 
 class Drivable(ABC):
@@ -13,7 +13,7 @@ class Drivable(ABC):
         pass
 
     @abstractmethod
-    def execute(self, command: Command, arg: Union[int, str] = None):
+    def execute(self, command: CommandId, arg: Union[int, str] = None):
         pass
 
     @abstractmethod
